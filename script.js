@@ -1,3 +1,8 @@
+const SUPABASE_URL = "https://vitquesksoyacvlhkcdm.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_mZXmp9RS7CNc78pACHRvnQ_gGEsjVgp";
+const supabase = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY) ?? null;
+const hasSupabaseConnectionCheck = { done: false };
+
 const STORAGE_KEY = "bbsData";
 const THREADS_PER_PAGE = 20;
 const POSTS_PER_PAGE = 20;
@@ -34,6 +39,14 @@ const loadData = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
     return seed;
   }
+};
+
+const runSupabaseConnectionCheck = () => {
+  if (!supabase || hasSupabaseConnectionCheck.done) return;
+  hasSupabaseConnectionCheck.done = true;
+  supabase.from("boards").select("*").then(({ data, error }) => {
+    console.log("supabase boards", { data, error });
+  });
 };
 
 const saveData = (data) => {
@@ -1055,6 +1068,7 @@ const renderConfirmPage = () => {
   }
 };
 
+runSupabaseConnectionCheck();
 renderThreadList();
 renderThreadPage();
 renderWritePage();
