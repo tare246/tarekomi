@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>馴れ合い | タレコミ掲示板</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body data-board="link2">
+  <main class="page page-link1">
+    <div class="banner-space" aria-hidden="true"></div>
+
+    <hr class="rule" />
+
+    <h1 class="page-title">馴れ合い</h1>
+
+    <hr class="rule rule-tight" />
+
+    <section class="thread-head" aria-label="スレ一覧ヘッダー">
+      <div class="thread-head__title">スレ一覧</div>
+      <nav class="thread-head__actions" aria-label="操作">
+        <a href="./new-thread.html?board=link2" class="bracket-link">[新ｽﾚ]</a>
+        <a href="./search.html?board=link2" class="bracket-link">[検索]</a>
+      </nav>
+    </section>
+
+    <hr class="rule rule-tight" />
+
+    <nav class="pager" aria-label="ページ移動" data-thread-pager></nav>
+
+    <section class="threads" aria-label="スレッド一覧">
+      <ol class="thread-list" data-thread-list></ol>
+    </section>
+
+    <nav class="pager" aria-label="ページ移動" data-thread-pager></nav>
+
+    <hr class="rule rule-tight" />
+
+    <div class="backline">
+      <a href="./index.html" class="bracket-link">[戻る]</a>
+    </div>
+
+    <div class="footer-space" aria-hidden="true"></div>
+  </main>
+
+  <script src="./script.js"></script>
+</body>
+</html>

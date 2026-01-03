@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>検索 | タレコミ掲示板</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <main class="page page-write" data-search-page>
+    <div class="banner-space" aria-hidden="true"></div>
+
+    <hr class="rule" />
+
+    <header class="write-header" aria-label="検索ヘッダー">
+      <div class="write-header__title" data-write-board>スレ一覧</div>
+      <div class="write-header__sub">└ 検索</div>
+    </header>
+
+    <hr class="rule rule-tight" />
+
+    <form class="write-form" data-search-form aria-label="検索フォーム">
+      <label class="field">
+        <div class="field__label">キーワード</div>
+        <input class="field__input" type="text" name="keyword" required />
+      </label>
+      <div class="actions">
+        <button class="submit" type="submit">検索</button>
+      </div>
+    </form>
+
+    <section class="threads" aria-label="検索結果">
+      <ol class="thread-list" data-search-results></ol>
+    </section>
+
+    <hr class="rule" />
+
+    <nav class="thread-footlinks" aria-label="下部リンク">
+      <a class="bracket-link" data-board-link href="./link1.html">[スレ一覧]</a>
+      <a class="bracket-link" href="./index.html">[TOPへ戻る]</a>
+    </nav>
+
+    <div class="footer-space" aria-hidden="true"></div>
+  </main>
+
+  <script src="./script.js"></script>
+</body>
+</html>

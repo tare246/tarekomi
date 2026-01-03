@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>書き込み | タレコミ掲示板</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <main class="page page-write" data-write-page>
+    <div class="banner-space" aria-hidden="true"></div>
+
+    <hr class="rule" />
+
+    <header class="write-header" aria-label="書き込みヘッダー">
+      <div class="write-header__title" data-write-board>スレ一覧</div>
+      <div class="write-header__sub" data-write-thread>└ スレッド名</div>
+      <div class="write-header__sub">└ 書き込み</div>
+    </header>
+
+    <hr class="rule rule-tight" />
+
+    <form class="write-form" data-write-form aria-label="書き込みフォーム">
+      <label class="field">
+        <div class="field__label">名前</div>
+        <input class="field__input" type="text" name="name" maxlength="40" />
+      </label>
+
+      <label class="field">
+        <div class="field__label">E-Mail: sage機能</div>
+        <input class="field__input" type="email" name="email" />
+      </label>
+
+      <label class="field">
+        <div class="field__label">メッセージ</div>
+        <textarea class="field__textarea" name="message" rows="10" required></textarea>
+      </label>
+
+      <label class="field">
+        <div class="field__label">添付ファイル（最大5MB）</div>
+        <div class="file-picker">
+          <input class="file-picker__input" type="file" name="file" id="file-input" accept="image/*" />
+          <label class="file-picker__button" for="file-input">ファイルを選択</label>
+          <span class="file-picker__name" data-file-name>未選択</span>
+        </div>
+      </label>
+
+      <label class="field">
+        <div class="field__label">削除パスワード</div>
+        <input class="field__input" type="text" name="delpass" maxlength="32" />
+      </label>
+
+      <div class="actions">
+        <button class="submit" type="submit">投稿</button>
+      </div>
+
+      <p class="form-note" data-write-note></p>
+    </form>
+
+    <hr class="rule" />
+
+    <nav class="thread-footlinks" aria-label="下部リンク">
+      <a class="bracket-link" data-thread-link href="./thread.html">[スレへ戻る]</a>
+      <a class="bracket-link" data-board-link href="./link1.html">[スレ一覧]</a>
+      <a class="bracket-link" href="./index.html">[TOPへ戻る]</a>
+    </nav>
+
+    <div class="footer-space" aria-hidden="true"></div>
+  </main>
+
+  <script src="./script.js"></script>
+</body>
+</html>

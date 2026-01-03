@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>スレッド | タレコミ掲示板</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <main class="page page-thread" data-thread-page>
+    <div class="banner-space" aria-hidden="true"></div>
+
+    <hr class="rule" />
+
+    <header class="thread-header" aria-label="スレッドヘッダー">
+      <div class="thread-header__title" data-thread-board>スレ一覧</div>
+      <div class="thread-header__sub">
+        <span class="thread-header__branch">└</span>
+        <span class="thread-header__name" data-thread-title>スレッド名</span>
+      </div>
+      <div class="thread-header__actions" data-thread-actions></div>
+    </header>
+
+    <hr class="rule rule-tight" />
+
+    <nav class="pipe-nav" aria-label="ページ移動（上）">
+      <span class="pipe-nav__mark">▼</span>
+      <a class="pipe-nav__link" data-write-link href="./write.html">書#</a>
+    </nav>
+
+    <nav class="pager" aria-label="ページ移動" data-post-pager></nav>
+
+    <hr class="rule rule-tight" />
+
+    <section class="posts" aria-label="レス一覧" data-posts>
+    </section>
+
+    <nav class="pager" aria-label="ページ移動" data-post-pager></nav>
+
+    <hr class="rule" />
+
+    <nav class="pipe-nav" aria-label="ページ移動（下）">
+      <span class="pipe-nav__mark">▲</span>
+      <a class="pipe-nav__link" data-write-link href="./write.html">書#</a>
+    </nav>
+
+    <div class="thread-footlinks" aria-label="下部リンク">
+      <a class="bracket-link" data-board-link href="./link1.html">[スレ一覧]</a>
+      <a class="bracket-link" href="./index.html">[TOPへ戻る]</a>
+    </div>
+
+    <div class="footer-space" aria-hidden="true"></div>
+  </main>
+
+  <script src="./script.js"></script>
+</body>
+</html>
