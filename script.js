@@ -457,50 +457,71 @@ const renderThreadPager = (pagers, baseParams, currentPage, totalPages) => {
   });
 };
 
-const renderThreadList = () => {
+const renderThreadList = async () => {
   const boardId = document.body.dataset.board;
   if (!boardId || !VALID_BOARDS.has(boardId)) return;
-  const data = loadData();
-  const board = data.boards[boardId];
   const list = document.querySelector("[data-thread-list]");
   const header = document.querySelector(".thread-head__title");
   const pagers = Array.from(document.querySelectorAll("[data-thread-pager]"));
 
-  if (!board || !list) return;
+  if (!list) return;
 
   list.innerHTML = "";
 
-  if (header) {
-    header.textContent = `スレ一覧 (${board.threads.length}件)`;
-  }
+  const currentPage = getPageParam();
+  const startIndex = (currentPage - 1) * THREADS_PER_PAGE;
+  const endIndex = startIndex + THREADS_PER_PAGE - 1;
 
-  if (board.threads.length === 0) {
-    const empty = document.createElement("li");
-    empty.textContent = "スレッドがありません。";
-    list.appendChild(empty);
+  if (!supabaseClient) {
+    console.error("Supabase client is not available.");
+    list.textContent = "読み込みに失敗しました";
     return;
   }
 
-  const currentPage = getPageParam();
-  const totalPages = Math.ceil(board.threads.length / THREADS_PER_PAGE);
-  const page = Math.min(currentPage, totalPages);
-  const sortedThreads = board.threads
-    .slice()
-    .sort((a, b) => b.createdAt - a.createdAt);
-  const startIndex = (page - 1) * THREADS_PER_PAGE;
-  const pageThreads = sortedThreads.slice(startIndex, startIndex + THREADS_PER_PAGE);
+  try {
+    const { data: threads, error, count } = await supabaseClient
+      .from("threads")
+      .select("id,title,created_at", { count: "exact" })
+      .eq("board_id", boardId)
+      .order("created_at", { ascending: false })
+      .range(startIndex, endIndex);
 
-  renderThreadPager(pagers, "", page, totalPages);
+    if (error) {
+      console.error("Failed to load threads.", error);
+      list.textContent = "読み込みに失敗しました";
+      return;
+    }
 
-  pageThreads.forEach((thread) => {
-    const item = document.createElement("li");
-    const link = document.createElement("a");
-    link.className = "thread-link";
-    link.href = `./thread.html?board=${boardId}&thread=${thread.id}`;
-    link.textContent = `${thread.title} (${thread.posts.length})`;
-    item.appendChild(link);
-    list.appendChild(item);
-  });
+    const totalCount = Number.isFinite(count) ? count : 0;
+    const totalPages = Math.max(1, Math.ceil(totalCount / THREADS_PER_PAGE));
+    const page = Math.min(currentPage, totalPages);
+
+    if (header) {
+      header.textContent = `スレ一覧 (${totalCount}件)`;
+    }
+
+    renderThreadPager(pagers, "", page, totalPages);
+
+    if (!threads || threads.length === 0) {
+      const empty = document.createElement("li");
+      empty.textContent = "スレッドがありません。";
+      list.appendChild(empty);
+      return;
+    }
+
+    threads.forEach((thread) => {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.className = "thread-link";
+      link.href = `./thread.html?board=${boardId}&thread=${thread.id}`;
+      link.textContent = `${thread.title} (0)`;
+      item.appendChild(link);
+      list.appendChild(item);
+    });
+  } catch (error) {
+    console.error("Failed to load threads.", error);
+    list.textContent = "読み込みに失敗しました";
+  }
 };
 
 const renderThreadPage = () => {
