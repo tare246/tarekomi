@@ -380,9 +380,9 @@ const getBoardIdParam = () => {
 };
 
 const getThreadIdParam = () => {
-  const threadIdRaw = Number(getParams().get("thread"));
-  if (!Number.isFinite(threadIdRaw) || threadIdRaw <= 0) return null;
-  return threadIdRaw;
+  const threadId = getParams().get("thread");
+  if (!threadId) return null;
+  return threadId;
 };
 
 const createPagerLink = (baseParams, page, label, isActive = false) => {
