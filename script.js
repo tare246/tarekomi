@@ -975,7 +975,7 @@ const renderNewThreadPage = () => {
     const message = sanitizeText(getTextFormValue(formData, "message"));
 
     if (!title || !message) {
-      if (note) note.textContent = "トルと本文を入力してください。";
+      if (note) note.textContent = "タイトルと本文を入力してください。";
       return;
     }
 
