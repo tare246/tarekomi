@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>リンク確認 | タレコミ掲示板</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <main class="page page-confirm" data-confirm-page>
+    <div class="banner-space" aria-hidden="true"></div>
+
+    <hr class="rule" />
+
+    <section class="confirm" aria-label="リンク確認">
+      <a class="confirm__link" data-confirm-link target="_blank" rel="noopener noreferrer"></a>
+      <p class="confirm__note">上記ページにジャンプしようとしています。問題無い場合はクリックしてください。</p>
+      <nav class="confirm__checks" aria-label="診断リンク">
+        <a class="confirm__check" data-confirm-google target="_blank" rel="noopener noreferrer">・Google セーフ ブラウジングで診断</a>
+        <a class="confirm__check" data-confirm-norton target="_blank" rel="noopener noreferrer">・Norton セーフ ウェブで診断</a>
+      </nav>
+    </section>
+
+    <hr class="rule" />
+
+    <div class="backline">
+      <a href="javascript:history.back()" class="bracket-link">[戻る]</a>
+    </div>
+
+    <div class="footer-space" aria-hidden="true"></div>
+  </main>
+
+  <script src="./script.js"></script>
+</body>
+</html>

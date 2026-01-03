@@ -503,6 +503,53 @@ body{
 }
 
 /* =========================
+  confirm.html（リンク確認）
+========================= */
+.page-confirm .banner-space{
+  height: clamp(110px, 14vw, 160px);
+}
+
+.confirm{
+  padding: 6px 0 10px;
+  display: grid;
+  gap: 12px;
+  width: min(560px, 96vw);
+}
+
+.confirm__url{
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.confirm__link,
+.confirm__check{
+  color: var(--text);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.confirm__link:hover,
+.confirm__check:hover{
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.confirm__note{
+  margin: 0;
+  opacity: .9;
+  font-size: 16px;
+}
+
+.confirm__checks{
+  display: grid;
+  gap: 6px;
+}
+
+.page-confirm .footer-space{
+  height: clamp(40px, 8vw, 90px);
+}
+
+/* =========================
   Usability（スマホで押しやすく）
 ========================= */
 .pipe-nav__link,

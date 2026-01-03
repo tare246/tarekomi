@@ -71,6 +71,70 @@ const createMessageFragment = (message) => {
   return fragment;
 };
 
+const isHttpUrl = (value) => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch (error) {
+    return false;
+  }
+};
+
+const getShortUrlLabel = (value) => {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    return parsed.hostname;
+  } catch (error) {
+    return null;
+  }
+};
+
+const renderBodyWithLinks = (message, container) => {
+  const fragment = document.createDocumentFragment();
+  const lines = message.split("\n");
+  const urlRegex = /https?:\/\/[^\s]+/gi;
+
+  lines.forEach((line, lineIndex) => {
+    let lastIndex = 0;
+    let match;
+
+    while ((match = urlRegex.exec(line)) !== null) {
+      const [url] = match;
+      const start = match.index;
+
+      if (start > lastIndex) {
+        fragment.appendChild(document.createTextNode(line.slice(lastIndex, start)));
+      }
+
+      const label = getShortUrlLabel(url);
+      if (label && isHttpUrl(url)) {
+        const link = document.createElement("a");
+        link.className = "inline-link";
+        link.href = `./confirm.html?url=${encodeURIComponent(url)}`;
+        link.textContent = label;
+        fragment.appendChild(link);
+      } else {
+        fragment.appendChild(document.createTextNode(url));
+      }
+
+      lastIndex = start + url.length;
+    }
+
+    if (lastIndex < line.length) {
+      fragment.appendChild(document.createTextNode(line.slice(lastIndex)));
+    }
+
+    if (lineIndex < lines.length - 1) {
+      fragment.appendChild(document.createElement("br"));
+    }
+  });
+
+  container.replaceChildren(fragment);
+};
+
 const getAuthorKey = (name = "", trip = "") => `${name}${trip}`;
 
 const setupImageViewer = () => {
@@ -608,7 +672,7 @@ const renderThreadPage = () => {
 
     const body = document.createElement("div");
     body.className = "post__body";
-    body.appendChild(createMessageFragment(message));
+    renderBodyWithLinks(message, body);
 
     const media = document.createElement("div");
     media.className = "post__media";
@@ -954,8 +1018,46 @@ const renderSearchPage = () => {
   });
 };
 
+const renderConfirmPage = () => {
+  const page = document.querySelector("[data-confirm-page]");
+  if (!page) return;
+
+  const params = getParams();
+  const urlParam = params.get("url") || "";
+  let decoded = "";
+  try {
+    decoded = decodeURIComponent(urlParam);
+  } catch (error) {
+    decoded = "";
+  }
+  const urlText = isHttpUrl(decoded) ? decoded : "";
+
+  const urlLink = document.querySelector("[data-confirm-link]");
+  const googleLink = document.querySelector("[data-confirm-google]");
+  const nortonLink = document.querySelector("[data-confirm-norton]");
+
+  if (!urlText) {
+    if (urlLink) urlLink.removeAttribute("href");
+    if (googleLink) googleLink.removeAttribute("href");
+    if (nortonLink) nortonLink.removeAttribute("href");
+    return;
+  }
+
+  if (urlLink) {
+    urlLink.href = urlText;
+    urlLink.textContent = urlText;
+  }
+  if (googleLink) {
+    googleLink.href = `https://transparencyreport.google.com/safe-browsing/search?url=${encodeURIComponent(urlText)}`;
+  }
+  if (nortonLink) {
+    nortonLink.href = `https://safeweb.norton.com/report?url=${encodeURIComponent(urlText)}`;
+  }
+};
+
 renderThreadList();
 renderThreadPage();
 renderWritePage();
 renderNewThreadPage();
 renderSearchPage();
+renderConfirmPage();
