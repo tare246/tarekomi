@@ -1,97 +1,17 @@
-const STORAGE_KEY = "bbsData";
 const THREADS_PER_PAGE = 20;
 const POSTS_PER_PAGE = 20;
 const VALID_BOARDS = new Set(["link1", "link2"]);
-const SUPABASE_URL = window.SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "";
-const SUPABASE_TABLE = "bbs_state";
-const SUPABASE_ID = "main";
-
-let supabaseClient = null;
+const BOARD_INFO = {
+  link1: { name: "テーマ話" },
+  link2: { name: "馴れ合い" }
+};
 
 const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
 
-const getSupabaseClient = () => {
-  if (supabaseClient) return supabaseClient;
-  if (!window.supabase) {
-    console.error("Supabase SDK が読み込まれていません。");
-    return null;
-  }
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.error("SUPABASE_URL または SUPABASE_ANON_KEY が設定されていません。");
-    return null;
-  }
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  return supabaseClient;
-};
-
-const getDefaultData = () => {
-  return {
-    boards: {
-      link1: {
-        name: "テーマ話",
-        threads: []
-      },
-      link2: {
-        name: "馴れ合い",
-        threads: []
-      }
-    }
-  };
-};
-
-const loadData = async () => {
-  const client = getSupabaseClient();
-  if (!client) return getDefaultData();
-
-  try {
-    const { data, error } = await client
-      .from(SUPABASE_TABLE)
-      .select("data")
-      .eq("id", SUPABASE_ID)
-      .single();
-
-    if (error) {
-      if (error.code !== "PGRST116") {
-        console.error("Supabase からの読み込みに失敗しました。", error);
-      }
-      const seed = getDefaultData();
-      await saveData(seed);
-      return seed;
-    }
-
-    if (data?.data) {
-      return data.data;
-    }
-  } catch (error) {
-    console.error("Supabase からの読み込みに失敗しました。", error);
-  }
-
-  const seed = getDefaultData();
-  await saveData(seed);
-  return seed;
-};
-
-const saveData = async (data) => {
-  const client = getSupabaseClient();
-  if (!client) return;
-
-  try {
-    const { error } = await client.from(SUPABASE_TABLE).upsert({
-      id: SUPABASE_ID,
-      data
-    });
-
-    if (error) {
-      console.error("Supabase への保存に失敗しました。", error);
-    }
-  } catch (error) {
-    console.error("Supabase への保存に失敗しました。", error);
-  }
-};
-
 const formatDate = (value) => {
+  if (!value) return "";
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   const hours = `${date.getHours()}`.padStart(2, "0");
@@ -443,13 +363,15 @@ const getPageParam = () => {
 };
 
 const getBoardIdParam = () => {
-  const boardId = getParams().get("board");
+  const params = getParams();
+  const boardId = params.get("board_id") || params.get("board");
   if (!boardId || !VALID_BOARDS.has(boardId)) return null;
   return boardId;
 };
 
 const getThreadIdParam = () => {
-  const threadIdRaw = Number(getParams().get("thread"));
+  const params = getParams();
+  const threadIdRaw = Number(params.get("thread_id") || params.get("thread"));
   if (!Number.isFinite(threadIdRaw) || threadIdRaw <= 0) return null;
   return threadIdRaw;
 };
@@ -494,11 +416,73 @@ const renderThreadPager = (pagers, baseParams, currentPage, totalPages) => {
   });
 };
 
+const getSupabaseClient = () => {
+  if (!window.supabaseClient) {
+    const message = "Supabase クライアントが初期化されていません。";
+    console.error(message);
+    alert(message);
+    return null;
+  }
+  return window.supabaseClient;
+};
+
+const fetchThreadsByBoard = async (boardId) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("threads")
+    .select("id, board_id, title, author, delpass, created_at")
+    .eq("board_id", boardId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+};
+
+const fetchPostsByBoard = async (boardId) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("posts")
+    .select("thread_id, message")
+    .eq("board_id", boardId);
+  if (error) throw error;
+  return data ?? [];
+};
+
+const fetchThreadById = async (threadId, boardId) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+  let query = supabase
+    .from("threads")
+    .select("id, board_id, title, author, delpass, created_at")
+    .eq("id", threadId);
+  if (boardId) {
+    query = query.eq("board_id", boardId);
+  }
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data;
+};
+
+const fetchPostsByThread = async (threadId, boardId) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return [];
+  let query = supabase
+    .from("posts")
+    .select("id, board_id, thread_id, name, trip, author, message, created_at")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true });
+  if (boardId) {
+    query = query.eq("board_id", boardId);
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+};
+
 const renderThreadList = async () => {
   const boardId = document.body.dataset.board;
   if (!boardId || !VALID_BOARDS.has(boardId)) return;
-  const data = await loadData();
-  const board = data.boards?.[boardId];
   const list = document.querySelector("[data-thread-list]");
   const header = document.querySelector(".thread-head__title");
   const pagers = Array.from(document.querySelectorAll("[data-thread-pager]"));
@@ -507,42 +491,50 @@ const renderThreadList = async () => {
 
   list.innerHTML = "";
 
-  if (!board) {
-    list.textContent = "スレッドがありません。";
-    return;
+  try {
+    const [threads, posts] = await Promise.all([
+      fetchThreadsByBoard(boardId),
+      fetchPostsByBoard(boardId)
+    ]);
+
+    if (header) {
+      header.textContent = `スレ一覧 (${threads.length}件)`;
+    }
+
+    if (threads.length === 0) {
+      const empty = document.createElement("li");
+      empty.textContent = "スレッドがありません。";
+      list.appendChild(empty);
+      return;
+    }
+
+    const counts = posts.reduce((map, post) => {
+      const key = post.thread_id;
+      map.set(key, (map.get(key) || 0) + 1);
+      return map;
+    }, new Map());
+
+    const currentPage = getPageParam();
+    const totalPages = Math.ceil(threads.length / THREADS_PER_PAGE);
+    const page = Math.min(currentPage, totalPages);
+    const startIndex = (page - 1) * THREADS_PER_PAGE;
+    const pageThreads = threads.slice(startIndex, startIndex + THREADS_PER_PAGE);
+
+    renderThreadPager(pagers, "", page, totalPages);
+
+    pageThreads.forEach((thread) => {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.className = "thread-link";
+      link.href = `./thread.html?board_id=${boardId}&thread_id=${thread.id}`;
+      link.textContent = `${thread.title} (${counts.get(thread.id) || 0})`;
+      item.appendChild(link);
+      list.appendChild(item);
+    });
+  } catch (error) {
+    console.error("スレッド一覧の取得に失敗しました", error);
+    alert("スレッド一覧の取得に失敗しました。");
   }
-
-  if (header) {
-    header.textContent = `スレ一覧 (${board.threads.length}件)`;
-  }
-
-  if (board.threads.length === 0) {
-    const empty = document.createElement("li");
-    empty.textContent = "スレッドがありません。";
-    list.appendChild(empty);
-    return;
-  }
-
-  const currentPage = getPageParam();
-  const totalPages = Math.ceil(board.threads.length / THREADS_PER_PAGE);
-  const page = Math.min(currentPage, totalPages);
-  const sortedThreads = board.threads
-    .slice()
-    .sort((a, b) => b.createdAt - a.createdAt);
-  const startIndex = (page - 1) * THREADS_PER_PAGE;
-  const pageThreads = sortedThreads.slice(startIndex, startIndex + THREADS_PER_PAGE);
-
-  renderThreadPager(pagers, "", page, totalPages);
-
-  pageThreads.forEach((thread) => {
-    const item = document.createElement("li");
-    const link = document.createElement("a");
-    link.className = "thread-link";
-    link.href = `./thread.html?board=${boardId}&thread=${thread.id}`;
-    link.textContent = `${thread.title} (${thread.posts.length})`;
-    item.appendChild(link);
-    list.appendChild(item);
-  });
 };
 
 const renderThreadPage = async () => {
@@ -551,8 +543,6 @@ const renderThreadPage = async () => {
 
   const boardId = getBoardIdParam();
   const threadId = getThreadIdParam();
-  const data = await loadData();
-  const board = boardId ? data.boards?.[boardId] : null;
 
   const boardTitle = document.querySelector("[data-thread-board]");
   const threadTitle = document.querySelector("[data-thread-title]");
@@ -564,308 +554,153 @@ const renderThreadPage = async () => {
 
   if (!postsRoot) return;
 
-  if (!board || !threadId) {
+  if (!threadId) {
     postsRoot.innerHTML = "<p>スレッドが見つかりません。</p>";
     return;
   }
 
-  const thread = board.threads.find((item) => item.id === threadId);
-  if (!thread) {
-    postsRoot.innerHTML = "<p>スレッドが見つかりません。</p>";
-    return;
-  }
+  try {
+    const [thread, posts] = await Promise.all([
+      fetchThreadById(threadId, boardId),
+      fetchPostsByThread(threadId, boardId)
+    ]);
 
-  if (!thread.author && thread.posts?.[0]) {
-    thread.author = getAuthorKey(thread.posts[0].name, thread.posts[0].trip);
-    await saveData(data);
-  }
+    if (!thread) {
+      postsRoot.innerHTML = "<p>スレッドが見つかりません。</p>";
+      return;
+    }
 
-  if (boardTitle) boardTitle.textContent = board.name;
-  if (threadTitle) threadTitle.textContent = thread.title;
+    if (boardTitle) {
+      boardTitle.textContent = BOARD_INFO[thread.board_id]?.name || "スレ一覧";
+    }
+    if (threadTitle) threadTitle.textContent = thread.title;
 
-  const imageViewer = setupImageViewer();
+    if (threadActions) {
+      threadActions.innerHTML = "";
+    }
 
-  if (threadActions) {
-    threadActions.innerHTML = "";
-    const editButton = document.createElement("button");
-    editButton.type = "button";
-    editButton.className = "action-button";
-    editButton.textContent = "[スレ編集]";
-    editButton.addEventListener("click", async () => {
-      if (!threadTitle) return;
-      threadTitle.replaceChildren();
-      const titleInput = document.createElement("input");
-      titleInput.type = "text";
-      titleInput.className = "inline-input";
-      titleInput.maxLength = 60;
-      titleInput.value = thread.title;
-      threadTitle.appendChild(titleInput);
-
-      threadActions.replaceChildren();
-      const passInput = document.createElement("input");
-      passInput.type = "text";
-      passInput.className = "inline-input";
-      passInput.placeholder = "削除パスワード";
-
-      const saveButton = document.createElement("button");
-      saveButton.type = "button";
-      saveButton.className = "action-button";
-      saveButton.textContent = "[保存]";
-      saveButton.addEventListener("click", async () => {
-        if ((thread.delpass || "") !== passInput.value) {
-          alert("パスワードが違います。");
-          return;
-        }
-        const trimmed = sanitizeText(titleInput.value || "");
-        if (!trimmed) {
-          alert("スレッド名を入力してください。");
-          return;
-        }
-        thread.title = trimmed;
-        await saveData(data);
-        renderThreadPage();
-      });
-
-      const cancelButton = document.createElement("button");
-      cancelButton.type = "button";
-      cancelButton.className = "action-button";
-      cancelButton.textContent = "[キャンセル]";
-      cancelButton.addEventListener("click", () => {
-        renderThreadPage();
-      });
-
-      threadActions.appendChild(passInput);
-      threadActions.appendChild(saveButton);
-      threadActions.appendChild(cancelButton);
+    writeLinks.forEach((link) => {
+      link.href = `./write.html?board_id=${thread.board_id}&thread_id=${thread.id}`;
     });
 
-    const deleteButton = document.createElement("button");
-    deleteButton.type = "button";
-    deleteButton.className = "action-button";
-    deleteButton.textContent = "[スレ削除]";
-    deleteButton.addEventListener("click", async () => {
-      if (thread.delpass) {
-        const pass = window.prompt("削除パスワードを入力してください");
-        if (pass === null) return;
-        if (thread.delpass !== pass) {
-          alert("パスワードが違います。");
-          return;
-        }
-      } else if (!window.confirm("スレッドを削除しますか？")) {
-        return;
+    boardLinks.forEach((link) => {
+      link.href = `./${thread.board_id}.html`;
+    });
+
+    postsRoot.innerHTML = "";
+
+    const currentPage = getPageParam();
+    const totalPages = Math.ceil(posts.length / POSTS_PER_PAGE);
+    const pageIndex = totalPages === 0 ? 1 : Math.min(currentPage, totalPages);
+    const baseParams = new URLSearchParams({ board_id: thread.board_id, thread_id: thread.id });
+
+    if (totalPages > 0 && currentPage !== pageIndex) {
+      const nextParams = new URLSearchParams(getParams());
+      nextParams.set("page", pageIndex);
+      history.replaceState(null, "", `?${nextParams.toString()}`);
+    }
+
+    renderThreadPager(pagers, baseParams.toString(), pageIndex, totalPages);
+
+    if (posts.length === 0) {
+      const empty = document.createElement("p");
+      empty.textContent = "投稿がありません。";
+      postsRoot.appendChild(empty);
+      return;
+    }
+
+    const startIndex = (pageIndex - 1) * POSTS_PER_PAGE;
+    const pagePosts = posts.slice(startIndex, startIndex + POSTS_PER_PAGE);
+
+    const imageViewer = setupImageViewer();
+
+    pagePosts.forEach((post, index) => {
+      const message = post.message || "";
+      const postNumber = startIndex + index + 1;
+      const article = document.createElement("article");
+      article.className = "post";
+
+      const head = document.createElement("div");
+      head.className = "post__head";
+
+      const no = document.createElement("span");
+      no.className = "post__no";
+      no.textContent = `${postNumber}：`;
+
+      const name = document.createElement("span");
+      name.className = "post__name";
+      const displayName = post.trip ? `${post.name} ${post.trip}` : post.name;
+      name.textContent = displayName || "名無し";
+
+      head.appendChild(no);
+      head.appendChild(name);
+
+      const meta = document.createElement("div");
+      meta.className = "post__meta";
+      meta.textContent = formatDate(post.created_at);
+
+      const body = document.createElement("div");
+      body.className = "post__body";
+      renderBodyWithLinks(message, body);
+
+      const media = document.createElement("div");
+      media.className = "post__media";
+      extractYouTubeIds(message).forEach((videoId) => {
+        media.appendChild(createYouTubeEmbed(videoId));
+      });
+
+      article.appendChild(head);
+      article.appendChild(meta);
+      article.appendChild(body);
+      if (media.childNodes.length > 0) {
+        article.appendChild(media);
       }
-      board.threads = board.threads.filter((item) => item.id !== thread.id);
-      await saveData(data);
-      window.location.href = `./${boardId}.html`;
-    });
-    threadActions.appendChild(editButton);
-    threadActions.appendChild(deleteButton);
-  }
 
-  writeLinks.forEach((link) => {
-    link.href = `./write.html?board=${boardId}&thread=${thread.id}`;
-  });
-
-  boardLinks.forEach((link) => {
-    link.href = `./${boardId}.html`;
-  });
-
-  postsRoot.innerHTML = "";
-
-  const currentPage = getPageParam();
-  const totalPages = Math.ceil(thread.posts.length / POSTS_PER_PAGE);
-  const pageIndex = totalPages === 0 ? 1 : Math.min(currentPage, totalPages);
-  const baseParams = new URLSearchParams({ board: boardId, thread: thread.id });
-
-  if (totalPages > 0 && currentPage !== pageIndex) {
-    const nextParams = new URLSearchParams(getParams());
-    nextParams.set("page", pageIndex);
-    history.replaceState(null, "", `?${nextParams.toString()}`);
-  }
-
-  renderThreadPager(pagers, baseParams.toString(), pageIndex, totalPages);
-
-  if (thread.posts.length === 0) {
-    const empty = document.createElement("p");
-    empty.textContent = "投稿がありません。";
-    postsRoot.appendChild(empty);
-    return;
-  }
-
-  const startIndex = (pageIndex - 1) * POSTS_PER_PAGE;
-  const pagePosts = thread.posts.slice(startIndex, startIndex + POSTS_PER_PAGE);
-
-  let needsSave = false;
-
-  pagePosts.forEach((post, index) => {
-    const message = post.message || "";
-    const postNumber = startIndex + index + 1;
-    const article = document.createElement("article");
-    article.className = "post";
-
-    if (!post.author) {
-      post.author = getAuthorKey(post.name, post.trip);
-      needsSave = true;
-    }
-
-    const head = document.createElement("div");
-    head.className = "post__head";
-
-    const no = document.createElement("span");
-    no.className = "post__no";
-    no.textContent = `${postNumber}：`;
-
-    const name = document.createElement("span");
-    name.className = "post__name";
-    const displayName = post.trip ? `${post.name} ${post.trip}` : post.name;
-    name.textContent = displayName || "名無し";
-
-    head.appendChild(no);
-    head.appendChild(name);
-
-    const meta = document.createElement("div");
-    meta.className = "post__meta";
-    meta.textContent = formatDate(post.createdAt);
-
-    const body = document.createElement("div");
-    body.className = "post__body";
-    renderBodyWithLinks(message, body);
-
-    const media = document.createElement("div");
-    media.className = "post__media";
-    extractYouTubeIds(message).forEach((videoId) => {
-      media.appendChild(createYouTubeEmbed(videoId));
-    });
-
-    const ua = document.createElement("div");
-    ua.className = "post__ua";
-    ua.textContent = normalizeDeviceType(post.ua);
-
-    article.appendChild(head);
-    article.appendChild(meta);
-    article.appendChild(body);
-    if (media.childNodes.length > 0) {
-      article.appendChild(media);
-    }
-
-    if (post.imageData) {
-      const imageWrap = document.createElement("div");
-      imageWrap.className = "post__image";
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "post__image-button";
-      const img = document.createElement("img");
-      img.className = "post__image-thumb";
-      img.src = post.imageData;
-      img.alt = "添付画像";
-      button.appendChild(img);
-      button.addEventListener("click", () => {
-        imageViewer.show(post.imageData);
-      });
-      imageWrap.appendChild(button);
-      article.appendChild(imageWrap);
-    }
-
-    article.appendChild(ua);
-
-    const actions = document.createElement("div");
-    actions.className = "post__actions";
-
-    const deleteLink = document.createElement("button");
-    deleteLink.type = "button";
-    deleteLink.className = "action-button";
-    deleteLink.textContent = "[削除]";
-    deleteLink.addEventListener("click", async () => {
-      const pass = window.prompt("削除パスワードを入力してください");
-      if (pass === null) return;
-      if ((post.delpass || "") !== pass) {
-        alert("パスワードが違います。");
-        return;
+      if (post.imageData) {
+        const imageWrap = document.createElement("div");
+        imageWrap.className = "post__image";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "post__image-button";
+        const img = document.createElement("img");
+        img.className = "post__image-thumb";
+        img.src = post.imageData;
+        img.alt = "添付画像";
+        button.appendChild(img);
+        button.addEventListener("click", () => {
+          imageViewer.show(post.imageData);
+        });
+        imageWrap.appendChild(button);
+        article.appendChild(imageWrap);
       }
-      thread.posts = thread.posts.filter((item) => item.id !== post.id);
-      await saveData(data);
-      renderThreadPage();
+
+      if (post.ua) {
+        const ua = document.createElement("div");
+        ua.className = "post__ua";
+        ua.textContent = normalizeDeviceType(post.ua);
+        article.appendChild(ua);
+      }
+
+      postsRoot.appendChild(article);
+
+      if (index !== pagePosts.length - 1) {
+        const divider = document.createElement("hr");
+        divider.className = "rule rule-tight";
+        postsRoot.appendChild(divider);
+      }
     });
-
-    const editButton = document.createElement("button");
-    editButton.type = "button";
-    editButton.className = "action-button";
-    editButton.textContent = "[編集]";
-    editButton.addEventListener("click", () => {
-      body.replaceChildren();
-      const textarea = document.createElement("textarea");
-      textarea.className = "inline-textarea";
-      textarea.rows = 6;
-      textarea.value = message;
-      body.appendChild(textarea);
-
-      const editActions = document.createElement("div");
-      editActions.className = "inline-actions";
-
-      const passInput = document.createElement("input");
-      passInput.type = "text";
-      passInput.className = "inline-input";
-      passInput.placeholder = "削除パスワード";
-
-      const saveButton = document.createElement("button");
-      saveButton.type = "button";
-      saveButton.className = "action-button";
-      saveButton.textContent = "[保存]";
-      saveButton.addEventListener("click", async () => {
-        if ((post.delpass || "") !== passInput.value) {
-          alert("パスワードが違います。");
-          return;
-        }
-        const nextMessage = sanitizeText(textarea.value || "");
-        if (!nextMessage) {
-          alert("本文を入力してください。");
-          return;
-        }
-        post.message = nextMessage;
-        await saveData(data);
-        renderThreadPage();
-      });
-
-      const cancelButton = document.createElement("button");
-      cancelButton.type = "button";
-      cancelButton.className = "action-button";
-      cancelButton.textContent = "[キャンセル]";
-      cancelButton.addEventListener("click", () => {
-        renderThreadPage();
-      });
-
-      editActions.appendChild(passInput);
-      editActions.appendChild(saveButton);
-      editActions.appendChild(cancelButton);
-      body.appendChild(editActions);
-    });
-
-    actions.appendChild(editButton);
-    actions.appendChild(deleteLink);
-    article.appendChild(actions);
-
-    postsRoot.appendChild(article);
-
-    if (index !== pagePosts.length - 1) {
-      const divider = document.createElement("hr");
-      divider.className = "rule rule-tight";
-      postsRoot.appendChild(divider);
-    }
-  });
-
-  if (needsSave) {
-    await saveData(data);
+  } catch (error) {
+    console.error("スレッド取得に失敗しました。", error);
+    alert("スレッドの取得に失敗しました。");
   }
 };
 
-const renderWritePage = async () => {
+const renderWritePage = () => {
   const page = document.querySelector("[data-write-page]");
   if (!page) return;
 
   const boardId = getBoardIdParam();
   const threadId = getThreadIdParam();
-  const data = await loadData();
-  const board = boardId ? data.boards?.[boardId] : null;
   const form = document.querySelector("[data-write-form]");
   const note = document.querySelector("[data-write-note]");
   const fileInput = document.querySelector("#file-input");
@@ -875,27 +710,40 @@ const renderWritePage = async () => {
   const threadLink = document.querySelector("[data-thread-link]");
   const boardLinks = document.querySelectorAll("[data-board-link]");
 
-  if (!form) return;
-
-  if (!board || !threadId) {
+  if (!boardId || !threadId) {
     if (note) note.textContent = "スレッドが見つかりません。";
-    form.querySelector("button").disabled = true;
+    if (form) form.querySelector("button").disabled = true;
     return;
   }
 
-  const thread = board.threads.find((item) => item.id === threadId);
-  if (!thread) {
-    if (note) note.textContent = "スレッドが見つかりません。";
-    form.querySelector("button").disabled = true;
-    return;
-  }
+  const init = async () => {
+    try {
+      const thread = await fetchThreadById(threadId, boardId);
+      if (!thread) {
+        if (note) note.textContent = "スレッドが見つかりません。";
+        if (form) form.querySelector("button").disabled = true;
+        return;
+      }
 
-  if (boardTitle) boardTitle.textContent = board.name;
-  if (threadTitle) threadTitle.textContent = `└ ${thread.title}`;
-  if (threadLink) threadLink.href = `./thread.html?board=${boardId}&thread=${thread.id}`;
-  boardLinks.forEach((link) => {
-    link.href = `./${boardId}.html`;
-  });
+      if (boardTitle) {
+        boardTitle.textContent = BOARD_INFO[thread.board_id]?.name || "スレ一覧";
+      }
+      if (threadTitle) threadTitle.textContent = `└ ${thread.title}`;
+      if (threadLink) {
+        threadLink.href = `./thread.html?board_id=${thread.board_id}&thread_id=${thread.id}`;
+      }
+      boardLinks.forEach((link) => {
+        link.href = `./${thread.board_id}.html`;
+      });
+    } catch (error) {
+      console.error("スレッド情報の取得に失敗しました。", error);
+      alert("スレッド情報の取得に失敗しました。");
+      if (note) note.textContent = "スレッド情報の取得に失敗しました。";
+      if (form) form.querySelector("button").disabled = true;
+    }
+  };
+
+  init();
 
   if (fileInput && fileName) {
     fileInput.addEventListener("change", () => {
@@ -913,74 +761,54 @@ const renderWritePage = async () => {
     }
 
     const file = formData.get("file");
-    let fileName = "";
-    let imageData = "";
     if (file && file.size > 0) {
-      if (file.size > 5 * 1024 * 1024) {
-        if (note) note.textContent = "添付ファイルは5MB以内にしてください。";
-        return;
-      }
-      fileName = file.name;
-      if (!file.type.startsWith("image/")) {
-        if (note) note.textContent = "画像ファイルを選択してください。";
-        return;
-      }
-      try {
-        const result = await readFileAsDataUrl(file);
-        if (typeof result === "string") {
-          imageData = result;
-        }
-      } catch (error) {
-        console.error("画像の読み込みに失敗しました。", error);
-        if (note) note.textContent = "画像の読み込みに失敗しました。";
-        return;
-      }
+      if (note) note.textContent = "添付ファイルは現在未対応です。";
+      return;
     }
 
-    const now = Date.now();
     const { name, trip } = parseNameWithTrip(formData.get("name"));
     const author = getAuthorKey(name, trip);
-    const post = {
-      id: now,
-      name,
-      trip,
-      author,
-      email: sanitizeText(formData.get("email") || ""),
-      message,
-      createdAt: now,
-      ua: getDeviceType(navigator.userAgent || ""),
-      delpass: sanitizeText(formData.get("delpass") || ""),
-      fileName,
-      imageData
-    };
 
-    thread.posts.push(post);
-    await saveData(data);
-    window.location.href = `./thread.html?board=${boardId}&thread=${thread.id}`;
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { error } = await supabase.from("posts").insert({
+        board_id: boardId,
+        thread_id: threadId,
+        name,
+        trip,
+        author,
+        message
+      });
+      if (error) throw error;
+      window.location.href = `./thread.html?board_id=${boardId}&thread_id=${threadId}`;
+    } catch (error) {
+      console.error("投稿に失敗しました。", error);
+      alert("投稿に失敗しました。");
+      if (note) note.textContent = "投稿に失敗しました。";
+    }
   });
 };
 
-const renderNewThreadPage = async () => {
+const renderNewThreadPage = () => {
   const page = document.querySelector("[data-new-thread-page]");
   if (!page) return;
 
   const boardId = getBoardIdParam();
-  const data = await loadData();
-  const board = boardId ? data.boards?.[boardId] : null;
   const form = document.querySelector("[data-new-thread-form]");
   const note = document.querySelector("[data-new-thread-note]");
   const boardTitle = document.querySelector("[data-write-board]");
   const boardLinks = document.querySelectorAll("[data-board-link]");
 
-  if (!form) return;
-
-  if (!board) {
+  if (!boardId) {
     if (note) note.textContent = "掲示板が見つかりません。";
-    form.querySelector("button").disabled = true;
+    if (form) form.querySelector("button").disabled = true;
     return;
   }
 
-  if (boardTitle) boardTitle.textContent = board.name;
+  if (boardTitle) {
+    boardTitle.textContent = BOARD_INFO[boardId]?.name || "スレ一覧";
+  }
   boardLinks.forEach((link) => {
     link.href = `./${boardId}.html`;
   });
@@ -996,85 +824,117 @@ const renderNewThreadPage = async () => {
       return;
     }
 
-    const now = Date.now();
     const { name, trip } = parseNameWithTrip(formData.get("name"));
     const author = getAuthorKey(name, trip);
-    const thread = {
-      id: now,
-      title,
-      author,
-      createdAt: now,
-      delpass: sanitizeText(formData.get("delpass") || ""),
-      posts: [
-        {
-          id: now,
-          name,
-          trip,
-          author,
-          email: sanitizeText(formData.get("email") || ""),
-          message,
-          createdAt: now,
-          ua: getDeviceType(navigator.userAgent || ""),
-          delpass: sanitizeText(formData.get("delpass") || "")
-        }
-      ]
-    };
+    const delpass = sanitizeText(formData.get("delpass") || "");
 
-    board.threads.unshift(thread);
-    await saveData(data);
-    window.location.href = `./thread.html?board=${boardId}&thread=${thread.id}`;
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+
+      const { data: thread, error: threadError } = await supabase
+        .from("threads")
+        .insert({
+          board_id: boardId,
+          title,
+          author,
+          delpass: delpass || null
+        })
+        .select("id")
+        .single();
+
+      if (threadError) throw threadError;
+
+      const { error: postError } = await supabase.from("posts").insert({
+        board_id: boardId,
+        thread_id: thread.id,
+        name,
+        trip,
+        author,
+        message
+      });
+
+      if (postError) throw postError;
+
+      window.location.href = `./thread.html?board_id=${boardId}&thread_id=${thread.id}`;
+    } catch (error) {
+      console.error("スレッド作成に失敗しました。", error);
+      alert("スレッド作成に失敗しました。");
+      if (note) note.textContent = "スレッド作成に失敗しました。";
+    }
   });
 };
 
-const renderSearchPage = async () => {
+const renderSearchPage = () => {
   const page = document.querySelector("[data-search-page]");
   if (!page) return;
 
   const boardId = getBoardIdParam();
-  const data = await loadData();
-  const board = boardId ? data.boards?.[boardId] : null;
   const form = document.querySelector("[data-search-form]");
   const results = document.querySelector("[data-search-results]");
   const boardTitle = document.querySelector("[data-write-board]");
   const boardLinks = document.querySelectorAll("[data-board-link]");
 
-  if (!form || !results) return;
-
-  if (!board) {
-    results.innerHTML = "<li>掲示板が見つかりません。</li>";
-    form.querySelector("button").disabled = true;
+  if (!boardId) {
+    if (results) results.innerHTML = "<li>掲示板が見つかりません。</li>";
+    if (form) form.querySelector("button").disabled = true;
     return;
   }
 
-  if (boardTitle) boardTitle.textContent = board.name;
+  if (boardTitle) {
+    boardTitle.textContent = BOARD_INFO[boardId]?.name || "スレ一覧";
+  }
   boardLinks.forEach((link) => {
     link.href = `./${boardId}.html`;
   });
 
-  const showResults = (keyword) => {
+  const showResults = async (keyword) => {
     results.innerHTML = "";
     const normalized = keyword.toLowerCase();
-    const matches = board.threads.filter((thread) => {
-      if (thread.title.toLowerCase().includes(normalized)) return true;
-      return thread.posts.some((post) => post.message.toLowerCase().includes(normalized));
-    });
 
-    if (matches.length === 0) {
+    try {
+      const [threads, posts] = await Promise.all([
+        fetchThreadsByBoard(boardId),
+        fetchPostsByBoard(boardId)
+      ]);
+
+      const postsByThread = posts.reduce((map, post) => {
+        if (!map.has(post.thread_id)) {
+          map.set(post.thread_id, []);
+        }
+        map.get(post.thread_id).push(post);
+        return map;
+      }, new Map());
+
+      const matches = threads.filter((thread) => {
+        if ((thread.title || "").toLowerCase().includes(normalized)) return true;
+        const threadPosts = postsByThread.get(thread.id) || [];
+        return threadPosts.some((post) => (post.message || "").toLowerCase().includes(normalized));
+      });
+
+      if (matches.length === 0) {
+        const item = document.createElement("li");
+        item.textContent = "該当するスレッドがありません。";
+        results.appendChild(item);
+        return;
+      }
+
+      matches.forEach((thread) => {
+        const item = document.createElement("li");
+        const link = document.createElement("a");
+        link.className = "thread-link";
+        link.href = `./thread.html?board_id=${boardId}&thread_id=${thread.id}`;
+        link.textContent = `${thread.title} (${(postsByThread.get(thread.id) || []).length})`;
+        item.appendChild(link);
+        results.appendChild(item);
+      });
+    } catch (error) {
+      console.error("検索に失敗しました。", error);
+      alert("検索に失敗しました。");
       const item = document.createElement("li");
-      item.textContent = "該当するスレッドがありません。";
+      item.textContent = "検索に失敗しました。";
       results.appendChild(item);
-      return;
     }
-
-    matches.forEach((thread) => {
-      const item = document.createElement("li");
-      const link = document.createElement("a");
-      link.className = "thread-link";
-      link.href = `./thread.html?board=${boardId}&thread=${thread.id}`;
-      link.textContent = `${thread.title} (${thread.posts.length})`;
-      item.appendChild(link);
-      results.appendChild(item);
-    });
   };
 
   form.addEventListener("submit", (event) => {
@@ -1123,11 +983,9 @@ const renderConfirmPage = () => {
   }
 };
 
-(async () => {
-  await renderThreadList();
-  await renderThreadPage();
-  await renderWritePage();
-  await renderNewThreadPage();
-  await renderSearchPage();
-  renderConfirmPage();
-})();
+renderThreadList();
+renderThreadPage();
+renderWritePage();
+renderNewThreadPage();
+renderSearchPage();
+renderConfirmPage();
