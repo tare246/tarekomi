@@ -1,3 +1,5 @@
+alert("supabase.js loaded");
+
 const SUPABASE_URL = "https://vitquesksoyacvlhkcdm.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_mZXmp9RS7CNc78pACHRvnQ_gGEsjVgp";
 
