@@ -989,3 +989,5 @@ renderWritePage();
 renderNewThreadPage();
 renderSearchPage();
 renderConfirmPage();
+
+console.log("✅ script.js loaded:", location.pathname);
