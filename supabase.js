@@ -1,6 +1,13 @@
 alert("supabase.js loaded");
 
-const SUPABASE_URL = "https://vitquesksoyacvlhkcdm.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_mZXmp9RS7CNc78pACHRvnQ_gGEsjVgp";
+console.log("window.supabase =", window.supabase);
 
-window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window.supabaseClient = window.supabase
+  ? window.supabase.createClient(
+      "https://vitquesksoyacvlhkcdm.supabase.co",
+      "sb_publishable_mZXmp9RS7CNc78pACHRvnQ_gGEsjVgp"
+    )
+  : null;
+
+console.log("window.supabaseClient =", window.supabaseClient);
+
